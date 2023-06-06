@@ -1,0 +1,6 @@
+Django==4.2.1
+djangorestframework==3.14.0
+djoser
+psycopg2-binary==2.8.6
+
+
