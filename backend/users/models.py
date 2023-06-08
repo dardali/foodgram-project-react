@@ -10,12 +10,14 @@ class CustomUser(AbstractUser):
     'Имя пользователя')
     first_name = models.CharField(max_length=150, verbose_name='Имя')
     last_name = models.CharField(max_length=150, verbose_name='Фамилия')
-    password = models.CharField(max_length=150, verbose_name='Пароль')
     subscriptions = models.ManyToManyField(
         'self',
         related_name='subscribers',
         symmetrical=False
     )
+
+    def is_subscribed_to(self, other_user):
+        return self.subscriptions.filter(id=other_user.id).exists()
 
     class Meta:
         verbose_name = 'Пользователь'

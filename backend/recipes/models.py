@@ -1,5 +1,6 @@
 from django.core.validators import RegexValidator
 from django.db import models
+
 from users.models import CustomUser
 
 
@@ -111,14 +112,15 @@ class FavoriteRecipe(models.Model):
 
 
 class ShoppingCart(models.Model):
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
         related_name='shopping_cart',
         verbose_name='Пользователь'
     )
-    recipes = models.ManyToManyField(
+    recipes = models.ForeignKey(
         Recipe,
+        on_delete=models.CASCADE,
         verbose_name='Рецепты',
         related_name='shopping_carts'
     )

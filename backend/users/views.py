@@ -57,8 +57,6 @@ class UserViewSet(viewsets.ModelViewSet):
 
             current_user.subscriptions.add(target_user)
 
-            # Выполните дополнительные действия, если необходимо
-
             return Response({'detail': 'Подписка выполнена успешно!'},
                             status=status.HTTP_201_CREATED)
 

@@ -27,14 +27,11 @@ class RecipeAdmin(admin.ModelAdmin):
     list_filter = ('author', 'name', 'tags',)
 
     def get_queryset(self, request):
-        # Получаем базовый запрос для списка объектов
         queryset = super().get_queryset(request)
-        # Добавляем аннотацию с общим числом добавлений в избранное
         queryset = queryset.annotate(favorite_count=Count('favorites'))
         return queryset
 
     def favorite_count(self, obj):
-        # Возвращает общее число добавлений в избранное для конкретного рецепта
         return obj.favorite_count
 
     favorite_count.short_description = 'Число добавлений в избранное'

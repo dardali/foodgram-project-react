@@ -1,6 +1,6 @@
 from django.http import FileResponse
 from django_filters.rest_framework import DjangoFilterBackend
-from recipes.models import Ingredient, Tag, Recipe, FavoriteRecipe
+
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -8,15 +8,16 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from .filters import IngredientFilter
-from .permissions import IsAdminOrReadOnly
+from .permissions import IsAdminAuthorOrReadOnly
 from .serializers import IngredientSerializer, TagSerializer, RecipeSerializer
-
+from recipes.models import Ingredient, Tag, Recipe, FavoriteRecipe, \
+    ShoppingCart
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     filter_class = IngredientFilter
-    permission_class = IsAdminOrReadOnly
+    permission_classes = [IsAdminAuthorOrReadOnly]
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -30,7 +31,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all().order_by('-id')
     serializer_class = RecipeSerializer
     pagination_class = PageNumberPagination
-    permission_class = IsAdminOrReadOnly
+    permission_classes = [IsAdminAuthorOrReadOnly]
 
     @action(detail=True, methods=['POST', 'DELETE'])
     def favorite(self, request, pk=None):
@@ -74,7 +75,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Response({'detail': 'Вы не авторизованы!'},
                             status=status.HTTP_401_UNAUTHORIZED)
-        # Получение списка ингредиентов из базы данных
+
         ingredients = Ingredient.objects.all()
         ingredient_names = [ingredient.name for ingredient in ingredients]
         content = '\n'.join(ingredient_names)
@@ -84,32 +85,31 @@ class RecipeViewSet(viewsets.ModelViewSet):
             filename)
         return response
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['POST', 'DELETE'])
     def shopping_cart(self, request, pk=None):
-        # Получить текущего пользователя
         user = request.user
-
-        # Получить рецепт по его идентификатору
         recipe = self.get_object()
-
-        # Получить список покупок пользователя
-        shopping_cart = user.shopping_cart
-
-        # Проверить, есть ли уже рецепт в списке покупок
-        if recipe in shopping_cart.recipes.all():
-            return Response({'detail': 'Рецепт уже добавлен в список покупок'},
-                            status=400)
-
-        # Добавить рецепт в список покупок
-        shopping_cart.recipes.add(recipe)
-
-        return Response({'detail': 'Рецепт успешно добавлен в список покупок'})
-
-
-
-
-
-
-
-
-
+        if not user.is_authenticated:
+            return Response({'detail': 'Вы не авторизованы!'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+        if request.method == 'POST':
+            if ShoppingCart.objects.filter(user=user,
+                                           recipes=recipe).exists():
+                return Response(
+                    {'detail': 'Рецепт уже находится в списке покупок!'},
+                    status=status.HTTP_400_BAD_REQUEST)
+            ShoppingCart.objects.create(user=user, recipes=recipe)
+            return Response({'detail': 'Рецепт добавлен в список покупок!'},
+                            status=status.HTTP_200_OK)
+        elif request.method == 'DELETE':
+            shopping_list = ShoppingCart.objects.filter(user=user,
+                                                        recipes=recipe).first()
+            if shopping_list:
+                shopping_list.delete()
+                return Response(
+                    {'detail': 'Рецепт успешно удален из списка покупок!'},
+                    status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {'detail': 'Рецепт не найден в списке покупок!'},
+                    status=status.HTTP_404_NOT_FOUND)
