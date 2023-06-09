@@ -1,5 +1,6 @@
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models.constraints import UniqueConstraint
 
 from users.models import CustomUser
 
@@ -55,7 +56,8 @@ class Recipe(models.Model):
         Tag,
         verbose_name='Тег'
     )
-    cooking_time = models.IntegerField(verbose_name='Время приготовления')
+    cooking_time = models.PositiveIntegerField(
+        verbose_name='Время приготовления')
 
     def __str__(self):
         return self.name
@@ -84,6 +86,10 @@ class IngredientInRecipe(models.Model):
         return f"{self.ingredients.name}({self.recipe.name})"
 
     class Meta:
+        constraints = [
+            UniqueConstraint(fields=['ingredients', 'recipe'],
+                             name='unique_ingredient_recipe')
+        ]
         verbose_name = 'Ингредиенты в рецепте'
         verbose_name_plural = 'Ингредиенты в рецепте'
 
@@ -103,7 +109,10 @@ class FavoriteRecipe(models.Model):
     )
 
     class Meta:
-        unique_together = ['user', 'recipe']
+        constraints = [
+            UniqueConstraint(fields=['user', 'recipe'],
+                             name='unique_favorite_user_recipe')
+        ]
         verbose_name = 'Рецепт в избранном'
         verbose_name_plural = 'Рецепты в избранном'
 
@@ -126,5 +135,9 @@ class ShoppingCart(models.Model):
     )
 
     class Meta:
+        constraints = [
+            UniqueConstraint(fields=['user', 'recipe'],
+                             name='unique_shopping_cart_user_recipe')
+        ]
         verbose_name = 'Список покупок'
         verbose_name_plural = 'Списки покупок'

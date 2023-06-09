@@ -60,16 +60,10 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Подписка выполнена успешно!'},
                             status=status.HTTP_201_CREATED)
 
-        elif request.method == 'DELETE':
-
-            if not current_user.is_authenticated:
-                return Response({'detail': 'Вы не авторизованы!'},
-                                status=status.HTTP_401_UNAUTHORIZED)
-            if current_user.subscriptions.filter(id=target_user.id).exists():
-                current_user.subscriptions.remove(target_user)
-                return Response({'detail': 'Подписка успешно удалена!'},
-                                status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    {'detail': 'Пользователь не найден в подписках!'},
-                    status=status.HTTP_404_NOT_FOUND)
+        if current_user.subscriptions.filter(id=target_user.id).exists():
+            current_user.subscriptions.remove(target_user)
+            return Response({'detail': 'Подписка успешно удалена!'},
+                            status=status.HTTP_200_OK)
+        return Response(
+            {'detail': 'Пользователь не найден в подписках!'},
+            status=status.HTTP_404_NOT_FOUND)
