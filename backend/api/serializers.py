@@ -1,8 +1,8 @@
 from rest_framework import serializers
-
 from users.serializers import UserSerializer
+
 from .fields import Base64ImageField
-from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
+from recipes.models import Ingredient, Tag, Recipe
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -16,6 +16,7 @@ class IngredientSerializer(serializers.ModelSerializer):
             'id',
 
         )
+        read_only_fields = '__all__',
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -40,6 +41,10 @@ class RecipeSerializer(serializers.ModelSerializer):
         fields = ['id', 'author', 'name', 'image', 'text', 'ingredients',
                   'tags', 'cooking_time',
                   'is_favorited', 'is_in_shopping_cart']
+        read_only_fields = (
+            'is_favorite',
+            'is_shopping_cart',
+        )
 
     def validate(self, attrs):
         ingredients = attrs.get('ingredients', [])
@@ -58,39 +63,29 @@ class RecipeSerializer(serializers.ModelSerializer):
             )
         return attrs
 
+    def save_tags_and_ingredients(self, recipe, tags_data, ingredients_data):
+        tags = Tag.objects.filter(
+            id__in=[tag_data['id'] for tag_data in tags_data]
+        )
+        recipe.tags.set(tags)
+        ingredients = Ingredient.objects.filter(
+            id__in=[ingredient_data['id'] for ingredient_data in
+                    ingredients_data]
+        )
+        recipe.ingredients.set(ingredients)
+
     def create(self, validated_data):
-        ingredients_data = validated_data.pop('ingredients')
         tags_data = validated_data.pop('tags')
-        author = self.context['request'].user
-        validated_data['author'] = author
+        ingredients_data = validated_data.pop('ingredients')
         recipe = Recipe.objects.create(**validated_data)
-        ingredients = [Ingredient(**ingredient_data) for ingredient_data in
-                       ingredients_data]
-        Ingredient.objects.bulk_create(ingredients)
-        ingredient_relations = [
-            IngredientInRecipe(recipe=recipe, ingredients=ingredient) for
-            ingredient in ingredients]
-        IngredientInRecipe.objects.bulk_create(ingredient_relations)
-        tags = [Tag(**tag_data) for tag_data in tags_data]
-        Tag.objects.bulk_create(tags)
-        recipe.tags.add(*tags)
+        self.save_tags_and_ingredients(recipe, tags_data, ingredients_data)
         return recipe
 
     def update(self, instance, validated_data):
-        ingredients_data = validated_data.pop('ingredients', [])
-        tags_data = validated_data.pop('tags', [])
-        instance = super().update(instance,
-                                  validated_data)
-        instance.ingredients.clear()
-        for ingredient_data in ingredients_data:
-            ingredient = Ingredient.objects.create(**ingredient_data)
-            IngredientInRecipe.objects.create(recipe=instance,
-                                              ingredients=ingredient)
-        instance.tags.clear()
-        for tag_data in tags_data:
-            tag = Tag.objects.create(**tag_data)
-            instance.tags.add(tag)
-        instance.save()
+        tags_data = validated_data.pop('tags')
+        ingredients_data = validated_data.pop('ingredients')
+        instance = super().update(instance, validated_data)
+        self.save_tags_and_ingredients(instance, tags_data, ingredients_data)
         return instance
 
     def get_is_favorited(self, obj):

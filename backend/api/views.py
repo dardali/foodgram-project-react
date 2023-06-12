@@ -1,3 +1,4 @@
+from django.db.models import Sum
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
@@ -7,11 +8,11 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from .filters import IngredientFilter
-from .mixins import ShoppingCartMixin, FavoriteRecipeMixin
-from .permissions import IsAdminAuthorOrReadOnly
+from .mixins import FavoriteAndShoppingCartMixin
+from .permissions import IsAdminAuthorOrReadOnly, IsAdminOrReadOnly
 from .serializers import IngredientSerializer, TagSerializer, RecipeSerializer
-from recipes.models import (Ingredient, Tag, Recipe, FavoriteRecipe,
-                            ShoppingCart, IngredientInRecipe)
+from recipes.models import (Ingredient, Tag, Recipe, ShoppingCart,
+                            IngredientInRecipe)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -28,49 +29,52 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['slug']
 
 
-class RecipeViewSet(viewsets.ModelViewSet, ShoppingCartMixin,
-                    FavoriteRecipeMixin):
+class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
     queryset = Recipe.objects.all().order_by('-id')
     serializer_class = RecipeSerializer
     pagination_class = PageNumberPagination
     permission_classes = [IsAdminAuthorOrReadOnly]
 
-    @action(detail=True, methods=['POST', 'DELETE'])
+    @action(detail=True, methods=['POST', 'DELETE'],
+            permission_classes=[IsAdminOrReadOnly])
     def favorite(self, request, pk=None):
         recipe = self.get_object()
-        user = request.user
-        if not user.is_authenticated:
-            return Response(
-                {'detail': 'Вы не авторизованы!'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        return self.perform_favorite_action(user, recipe)
+        if request.method == 'POST':
+            return self.handle_favorite(request, recipe)
+        elif request.method == 'DELETE':
+            return self.handle_delete_favorite(request, recipe)
 
     @action(detail=False, methods=['GET'])
     def download_shopping_cart(self, request):
-        if not request.user.is_authenticated:
-            return HttpResponse('Вы не авторизованы!', status=401)
-        shopping_cart_items = ShoppingCart.objects.filter(user=request.user)
-        content = ""
-        for item in shopping_cart_items:
-            content += f"{item.recipes.name}\n"
-            ingredients = IngredientInRecipe.objects.filter(
-                recipe=item.recipes)
-            for ingredient in ingredients:
-                content += f"- {ingredient.ingredients.name}: {ingredient.unit}\n"
-            content += "\n"
-        response = HttpResponse(content, content_type='text/plain')
-        response[
-            'Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
+        user = request.user
+        if not user.shopping_cart.exists():
+            return Response('В корзине нет товаров',
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        text = 'Список покупок:\n\n'
+        ingredient_name = 'recipes__ingredients__name'
+        ingredient_unit = 'recipes__ingredients__measurement_unit'
+        recipe_amount = 'recipes__IngredientinRecipe__unit'
+        amount_sum = 'recipes__IngredientinRecipe__unit__sum'
+        cart = ShoppingCart.objects.filter(user=user).select_related(
+            'recipes').values(
+            ingredient_name, ingredient_unit).annotate(Sum(
+            recipe_amount)).order_by(ingredient_name)
+        for item in cart:
+            text += (
+                f'{item[ingredient_name]} ({item[ingredient_unit]})'
+                f' — {item[amount_sum]}\n'
+            )
+        response = HttpResponse(text, content_type='text/plain')
+        filename = 'shopping_list.txt'
+        response['Content-Disposition'] = f'attachment; filename={filename}'
         return response
 
-    @action(detail=True, methods=['POST', 'DELETE'])
+    @action(detail=True, methods=['POST', 'DELETE'],
+            permission_classes=[IsAdminOrReadOnly])
     def shopping_cart(self, request, pk=None):
-        user = request.user
         recipe = self.get_object()
-        if not user.is_authenticated:
-            return Response(
-                {'detail': 'Вы не авторизованы!'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        return self.perform_shopping_cart_action(user, recipe)
+        if request.method == 'POST':
+            return self.handle_shopping_cart(request, recipe)
+        elif request.method == 'DELETE':
+            return self.handle_delete_shopping_cart(request, recipe)
