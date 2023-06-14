@@ -71,13 +71,13 @@ class IngredientInRecipe(models.Model):
     ingredients = models.ForeignKey(
         Ingredient,
         on_delete=models.CASCADE,
-        related_name='Ingredient_in_Recipe',
+        related_name='ingredient_in_recipe',
         verbose_name='Ингредиент'
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='Ingredient_in_Recipe',
+        related_name='ingredient_in_recipe',
         verbose_name='Рецепт'
     )
     unit = models.CharField(max_length=100, verbose_name='Количество')

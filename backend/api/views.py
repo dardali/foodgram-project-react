@@ -54,8 +54,8 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
         text = 'Список покупок:\n\n'
         ingredient_name = 'recipe__ingredients__name'
         ingredient_unit = 'recipe__ingredients__measurement_unit'
-        recipe_amount = 'recipe__Ingredient_in_Recipe__unit'
-        amount_sum = 'recipe__Ingredient_in_Recipe__unit__sum'
+        recipe_amount = 'recipe__ingredient_in_recipe__unit'
+        amount_sum = 'recipe__ingredient_in_recipe__unit__sum'
         cart = ShoppingCart.objects.filter(user=user).select_related(
             'recipe').values(
             ingredient_name, ingredient_unit).annotate(Sum(

@@ -32,10 +32,10 @@ class FavoriteAndShoppingCartMixin:
             return Response(
                 {'detail': f'Рецепт добавлен в {relationship_name}!'},
                 status=status.HTTP_200_OK)
-        else:
-            return Response(
-                {'detail': f'Рецепт уже находится в {relationship_name}!'},
-                status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {'detail': f'Рецепт уже находится в {relationship_name}!'},
+            status=status.HTTP_400_BAD_REQUEST)
 
     def handle_delete_relationship(self, request, recipe, model,
                                    relationship_name):
@@ -47,7 +47,6 @@ class FavoriteAndShoppingCartMixin:
             return Response(
                 {'detail': f'Рецепт удален из {relationship_name}!'},
                 status=status.HTTP_200_OK)
-        else:
-            return Response(
-                {'detail': f'Рецепт не найден в {relationship_name}!'},
-                status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {'detail': f'Рецепт не найден в {relationship_name}!'},
+            status=status.HTTP_404_NOT_FOUND)
