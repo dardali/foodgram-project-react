@@ -52,12 +52,12 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
                             status=status.HTTP_400_BAD_REQUEST)
 
         text = 'Список покупок:\n\n'
-        ingredient_name = 'recipes__ingredients__name'
-        ingredient_unit = 'recipes__ingredients__measurement_unit'
-        recipe_amount = 'recipes__IngredientinRecipe__unit'
-        amount_sum = 'recipes__IngredientinRecipe__unit__sum'
+        ingredient_name = 'recipe__ingredients__name'
+        ingredient_unit = 'recipe__ingredients__measurement_unit'
+        recipe_amount = 'recipe__Ingredient_in_Recipe__unit'
+        amount_sum = 'recipe__Ingredient_in_Recipe__unit__sum'
         cart = ShoppingCart.objects.filter(user=user).select_related(
-            'recipes').values(
+            'recipe').values(
             ingredient_name, ingredient_unit).annotate(Sum(
             recipe_amount)).order_by(ingredient_name)
         for item in cart:

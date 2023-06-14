@@ -71,13 +71,13 @@ class IngredientInRecipe(models.Model):
     ingredients = models.ForeignKey(
         Ingredient,
         on_delete=models.CASCADE,
-        related_name='IngredientinRecipe',
+        related_name='Ingredient_in_Recipe',
         verbose_name='Ингредиент'
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='IngredientinRecipe',
+        related_name='Ingredient_in_Recipe',
         verbose_name='Рецепт'
     )
     unit = models.CharField(max_length=100, verbose_name='Количество')
@@ -127,7 +127,7 @@ class ShoppingCart(models.Model):
         related_name='shopping_cart',
         verbose_name='Пользователь'
     )
-    recipes = models.ForeignKey(
+    recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
         verbose_name='Рецепты',
