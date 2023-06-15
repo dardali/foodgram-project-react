@@ -1,6 +1,7 @@
-from recipes.models import ShoppingCart, FavoriteRecipe
 from rest_framework import status
 from rest_framework.response import Response
+
+from recipes.models import ShoppingCart, FavoriteRecipe
 
 
 class FavoriteAndShoppingCartMixin:
