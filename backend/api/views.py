@@ -10,8 +10,10 @@ from rest_framework.response import Response
 from .filters import IngredientFilter
 from .mixins import FavoriteAndShoppingCartMixin
 from .permissions import IsAdminAuthorOrReadOnly, IsAdminOrReadOnly
-from .serializers import IngredientSerializer, TagSerializer, RecipeSerializer
-from recipes.models import (Ingredient, Tag, Recipe, ShoppingCart)
+from .serializers import (
+    IngredientSerializer, TagSerializer, RecipeSerializer
+)
+from recipes.models import Ingredient, Tag, Recipe, ShoppingCart
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -59,9 +61,12 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
         recipe_amount = 'recipe__ingredient_in_recipe__unit'
         amount_sum = 'recipe__ingredient_in_recipe__unit__sum'
         cart = ShoppingCart.objects.filter(user=user).select_related(
-            'recipe').values(
-            ingredient_name, ingredient_unit).annotate(Sum(
-            recipe_amount)).order_by(ingredient_name)
+            'recipe'
+        ).values(
+            ingredient_name, ingredient_unit
+        ).annotate(
+            Sum(recipe_amount)
+        ).order_by(ingredient_name)
         for item in cart:
             text += (
                 f'{item[ingredient_name]} ({item[ingredient_unit]})'
