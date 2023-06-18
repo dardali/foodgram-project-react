@@ -6,11 +6,14 @@ load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-SECRET_KEY = "#po60)nn5m1&!!_qtm&4#-g#m-tbm^^9^5d5&q!dp*91&!2-o"
+DATA_FILES_DIR = os.path.join(BASE_DIR, 'data')
 
-DEBUG = False
 
-ALLOWED_HOSTS = ['158.160.66.140', '127.0.0.1', 'localhost']
+SECRET_KEY = os.environ.get('SECRET_KEY', default='your_secret_key')
+
+DEBUG = True
+
+ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
@@ -62,18 +65,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'foodgram.wsgi.application'
 
-
-DATABASES = {
-    'default': {
-        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('POSTGRES_USER'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT')
+if DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        }
     }
-}
-
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+            'NAME': os.getenv('DB_NAME', 'postgres'),
+            'USER': os.getenv('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+            'HOST': os.getenv('DB_HOST', 'db'),
+            'PORT': os.getenv('DB_PORT', 5432)
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -103,7 +112,6 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
-
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication"
@@ -115,3 +123,4 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 6,
 }
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

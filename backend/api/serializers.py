@@ -35,11 +35,12 @@ class IngredientAmountSerializer(serializers.ModelSerializer):
 
 
 class TagSerializer(serializers.ModelSerializer):
-    """Сериализатор для тегов"""
-
+    """Сериализатор для вывода тэгов.
+    """
     class Meta:
         model = Tag
         fields = '__all__'
+        read_only_fields = '__all__',
 
 
 class RecipeSerializer(serializers.ModelSerializer):

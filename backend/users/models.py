@@ -3,7 +3,6 @@ from django.db import models
 
 
 class CustomUser(AbstractUser):
-    USERNAME_FIELD = 'username'
     email = models.EmailField(max_length=254, unique=True, verbose_name=
     'Электронная почта')
     username = models.CharField(max_length=150, unique=True, verbose_name=
@@ -15,6 +14,9 @@ class CustomUser(AbstractUser):
         related_name='subscribers',
         symmetrical=False
     )
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['first_name', 'last_name']
 
     def is_subscribed_to(self, other_user):
         return self.subscriptions.filter(id=other_user.id).exists()

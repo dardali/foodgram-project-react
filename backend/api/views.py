@@ -35,6 +35,9 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
     pagination_class = PageNumberPagination
     permission_classes = [IsAdminAuthorOrReadOnly]
 
+    def perform_create(self, serializer):
+        serializer.save(author_id=self.request.user.id)
+
     @action(detail=True, methods=['POST', 'DELETE'],
             permission_classes=[IsAdminOrReadOnly])
     def favorite(self, request, pk=None):
