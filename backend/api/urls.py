@@ -12,8 +12,6 @@ router_v1.register(r'tags', TagViewSet)
 router_v1.register(r'recipes', RecipeViewSet)
 router_v1.register(r'users', UserViewSet)
 
-
-
 urlpatterns = [
     path('', include(router_v1.urls)),
     path('auth/', include('djoser.urls')),

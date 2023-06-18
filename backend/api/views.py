@@ -11,8 +11,7 @@ from .filters import IngredientFilter
 from .mixins import FavoriteAndShoppingCartMixin
 from .permissions import IsAdminAuthorOrReadOnly, IsAdminOrReadOnly
 from .serializers import IngredientSerializer, TagSerializer, RecipeSerializer
-from recipes.models import (Ingredient, Tag, Recipe, ShoppingCart,
-                            IngredientInRecipe)
+from recipes.models import (Ingredient, Tag, Recipe, ShoppingCart)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
