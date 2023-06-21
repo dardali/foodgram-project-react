@@ -2,6 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from .models import CustomUser
@@ -16,6 +17,7 @@ class UserViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     search_fields = ['username']
     permission_classes = [CustomPermission]
+    pagination_class = PageNumberPagination
 
     @action(detail=False, methods=['GET'])
     def me(self, request):

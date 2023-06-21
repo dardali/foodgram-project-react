@@ -1,6 +1,7 @@
 from django.db.models import Sum
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
+from recipes.models import Ingredient, Tag, Recipe, ShoppingCart
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -13,7 +14,10 @@ from .permissions import IsAdminAuthorOrReadOnly, IsAdminOrReadOnly
 from .serializers import (
     IngredientSerializer, TagSerializer, RecipeSerializer
 )
-from recipes.models import Ingredient, Tag, Recipe, ShoppingCart
+
+
+class NoPagination(PageNumberPagination):
+    page_size = None
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -21,6 +25,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
     filter_class = IngredientFilter
     permission_classes = [IsAdminAuthorOrReadOnly]
+    pagination_class = NoPagination
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -28,6 +33,7 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TagSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['slug']
+    pagination_class = NoPagination
 
 
 class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):

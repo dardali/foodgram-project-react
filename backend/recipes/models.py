@@ -1,4 +1,4 @@
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, MinValueValidator
 from django.db import models
 from django.db.models.constraints import UniqueConstraint
 
@@ -80,7 +80,12 @@ class IngredientInRecipe(models.Model):
         related_name='ingredient_in_recipe',
         verbose_name='Рецепт'
     )
-    unit = models.CharField(max_length=100, verbose_name='Количество')
+    amount = models.PositiveSmallIntegerField(
+        'Количество',
+        validators=[MinValueValidator(1, message='Минимальное количество 1!')],
+        null=False,
+        blank=False
+    )
 
     def __str__(self):
         return f"{self.ingredients.name}({self.recipe.name})"
@@ -99,12 +104,12 @@ class FavoriteRecipe(models.Model):
         Recipe,
         on_delete=models.CASCADE,
         related_name='favorites',
-        verbose_name='Рецепт в избранном'
+        verbose_name='Рецепт'
     )
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
-        related_name='favorite_recipes',
+        related_name='favorites',
         verbose_name='Пользователь'
     )
 
@@ -117,7 +122,7 @@ class FavoriteRecipe(models.Model):
         verbose_name_plural = 'Рецепты в избранном'
 
     def __str__(self):
-        return f"{self.recipe.name} - {self.user.username}"
+        return f'{self.user} добавил "{self.recipe}" в Избранное'
 
 
 class ShoppingCart(models.Model):

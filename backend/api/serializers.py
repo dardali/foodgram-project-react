@@ -1,10 +1,10 @@
 from django.shortcuts import get_object_or_404
+from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
-
 from users.serializers import UserSerializer
+
 from .fields import Base64ImageField
-from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -16,31 +16,29 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class IngredientAmountSerializer(serializers.ModelSerializer):
-    id = serializers.ReadOnlyField(source='ingredient.id')
-    name = serializers.ReadOnlyField(source='ingredient.name')
+    id = serializers.ReadOnlyField(source='ingredients.id')
+    name = serializers.ReadOnlyField(source='ingredients.name')
     measurement_unit = serializers.ReadOnlyField(
-        source='ingredient.measurement_unit'
-    )
-    unit = serializers.CharField(source='unit')
+        source='ingredients.measurement_unit', read_only=True)
+    amount = serializers.IntegerField()
 
     class Meta:
         model = IngredientInRecipe
-        fields = ('id', 'name', 'measurement_unit', 'unit')
+        fields = ('id', 'name', 'measurement_unit', 'amount')
         validators = [
             UniqueTogetherValidator(
                 queryset=IngredientInRecipe.objects.all(),
-                fields=['ingredient', 'recipe']
+                fields=['ingredients', 'recipe']
             )
         ]
 
 
 class TagSerializer(serializers.ModelSerializer):
-    """Сериализатор для вывода тэгов.
-    """
+    """Сериализатор для тегов"""
+
     class Meta:
         model = Tag
         fields = '__all__'
-        read_only_fields = '__all__',
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -48,18 +46,16 @@ class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     tags = TagSerializer(read_only=True, many=True)
     ingredients = IngredientAmountSerializer(
-        source='ingredientamount_set',
+        source='ingredient_in_recipe',
         many=True,
-        read_only=True, )
+        read_only=True)
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
     image = Base64ImageField()
 
     class Meta:
         model = Recipe
-        fields = ['id', 'author', 'name', 'image', 'text', 'ingredients',
-                  'tags', 'cooking_time',
-                  'is_favorited', 'is_in_shopping_cart']
+        fields = "__all__"
         read_only_fields = (
             'is_favorite',
             'is_shopping_cart',
@@ -85,9 +81,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 })
             if int(amount) < 0:
                 raise serializers.ValidationError({
-                    'ingredients': 'Убедитесь, '
-                                   'что значение количества '
-                                   'ингредиента больше 0'
+                    'ingredients': 'Убедитесь, что значение количества ингредиента больше 0'
                 })
             ingredient_item['amount'] = amount
         data['ingredients'] = ingredients
@@ -109,11 +103,12 @@ class RecipeSerializer(serializers.ModelSerializer):
                                        **validated_data)
         for ingredient_data in ingredients_data:
             ingredient = Ingredient.objects.get(id=ingredient_data['id'])
-            unit = ingredient_data.get('unit')
+            amount = ingredient_data['amount']
             IngredientInRecipe.objects.create(
                 recipe=recipe,
                 ingredients=ingredient,
-                unit=unit if unit else ""
+                amount=amount
+
             )
         tags_data = self.initial_data.get('tags')
         recipe.tags.set(tags_data)
@@ -132,11 +127,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         IngredientInRecipe.objects.filter(recipe=instance).delete()
         for ingredient_data in ingredients_data:
             ingredient = Ingredient.objects.get(id=ingredient_data['id'])
-            unit = ingredient_data.get('unit')
+            amount = ingredient_data.get('amount')
             IngredientInRecipe.objects.create(
                 recipe=instance,
                 ingredients=ingredient,
-                unit=unit if unit else ""
+                amount=amount if amount else ""
             )
         return instance
 
