@@ -1,14 +1,16 @@
 from django.db.models import Sum
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from recipes.models import Ingredient, Tag, Recipe, ShoppingCart
-from rest_framework import status
-from rest_framework import viewsets
+from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe, \
+    FavoriteRecipe, ShoppingCart
+from rest_framework import status, viewsets, response
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.validators import ValidationError
 
-from .filters import IngredientFilter
+from .filters import IngredientFilter, RecipeFilterSet
 from .mixins import FavoriteAndShoppingCartMixin
 from .permissions import IsAdminAuthorOrReadOnly, IsAdminOrReadOnly
 from .serializers import (
@@ -16,8 +18,20 @@ from .serializers import (
 )
 
 
-class NoPagination(PageNumberPagination):
-    page_size = None
+def post_or_delete(request, pk, model, serializer_name):
+    user = request.user
+    data = {'user': user.id,
+            'recipe': pk}
+    serializer = serializer_name(data=data, context={'request': request})
+    if request.method == 'POST':
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return response.Response(serializer.data,
+                                 status=status.HTTP_201_CREATED)
+    get_object_or_404(
+        model, user=user, recipe=get_object_or_404(Recipe, id=pk)
+    ).delete()
+    return response.Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -25,7 +39,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
     filter_class = IngredientFilter
     permission_classes = [IsAdminAuthorOrReadOnly]
-    pagination_class = NoPagination
+    pagination_class = None
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -33,7 +47,7 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TagSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['slug']
-    pagination_class = NoPagination
+    pagination_class = None
 
 
 class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
@@ -41,12 +55,17 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
     serializer_class = RecipeSerializer
     pagination_class = PageNumberPagination
     permission_classes = [IsAdminAuthorOrReadOnly]
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = RecipeFilterSet
 
     def perform_create(self, serializer):
         serializer.save(author_id=self.request.user.id)
 
-    @action(detail=True, methods=['POST', 'DELETE'],
-            permission_classes=[IsAdminOrReadOnly])
+    @action(
+        detail=True,
+        methods=('POST', 'DELETE'),
+        permission_classes=(IsAdminOrReadOnly,)
+    )
     def favorite(self, request, pk=None):
         recipe = self.get_object()
         if request.method == 'POST':
@@ -54,40 +73,37 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
         elif request.method == 'DELETE':
             return self.handle_delete_favorite(request, recipe)
 
-    @action(detail=False, methods=['GET'])
+    @action(detail=True, methods=['POST', 'DELETE'],
+            permission_classes=[IsAdminOrReadOnly])
     def download_shopping_cart(self, request):
         user = request.user
         if not user.shopping_cart.exists():
             return Response('В корзине нет товаров',
                             status=status.HTTP_400_BAD_REQUEST)
-
-        text = 'Список покупок:\n\n'
-        ingredient_name = 'recipe__ingredients__name'
-        ingredient_unit = 'recipe__ingredients__measurement_unit'
-        recipe_amount = 'recipe__ingredient_in_recipe__unit'
-        amount_sum = 'recipe__ingredient_in_recipe__unit__sum'
-        cart = ShoppingCart.objects.filter(user=user).select_related(
-            'recipe'
-        ).values(
-            ingredient_name, ingredient_unit
-        ).annotate(
-            Sum(recipe_amount)
-        ).order_by(ingredient_name)
-        for item in cart:
-            text += (
-                f'{item[ingredient_name]} ({item[ingredient_unit]})'
-                f' — {item[amount_sum]}\n'
+    @action(detail=False, methods=['GET'])
+    def download_shopping_cart(self, request):
+        if not request.user.shopping_cart.exists():
+            return Response(
+                'В корзине нет товаров', status=status.HTTP_400_BAD_REQUEST)
+        ingredients = (
+            IngredientInRecipe.objects
+            .filter(recipe__shopping_cart__user=request.user)
+            .values('ingredients')
+            .annotate(total_amount=Sum('amount'))
+            .values_list(
+                'ingredients__name',
+                'total_amount',
+                'ingredients__measurement_unit'
             )
-        response = HttpResponse(text, content_type='text/plain')
-        filename = 'shopping_list.txt'
-        response['Content-Disposition'] = f'attachment; filename={filename}'
-        return response
+        )
 
-    @action(detail=True, methods=['POST', 'DELETE'],
-            permission_classes=[IsAdminOrReadOnly])
-    def shopping_cart(self, request, pk=None):
-        recipe = self.get_object()
-        if request.method == 'POST':
-            return self.handle_shopping_cart(request, recipe)
-        elif request.method == 'DELETE':
-            return self.handle_delete_shopping_cart(request, recipe)
+        text = ''
+        for ingredient in ingredients:
+            text += '{} - {} {}. \n'.format(*ingredient)
+
+        file = HttpResponse(
+            f'Покупки:\n {text}', content_type='text/plain'
+        )
+
+        file['Content-Disposition'] = ('attachment; filename=cart.txt')
+        return file

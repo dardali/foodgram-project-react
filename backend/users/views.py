@@ -1,22 +1,19 @@
-from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import CustomUser
-from .permissions import CustomPermission
+from .models import Subscribe
 from .serializers import UserSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
-    lookup_field = 'pk'
-    filter_backends = [DjangoFilterBackend]
-    search_fields = ['username']
-    permission_classes = [CustomPermission]
     pagination_class = PageNumberPagination
 
     @action(detail=False, methods=['GET'])
@@ -24,48 +21,40 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['GET'])
-    def subscriptions(self, request):
+    @action(
+        detail=True,
+        methods=['post', 'delete'],
+        permission_classes=[IsAuthenticated]
+    )
+    def subscribe(self, request, **kwargs):
         user = request.user
-        if not user.is_authenticated:
-            return Response({'detail': 'Вы не авторизованы!'},
-                            status=status.HTTP_401_UNAUTHORIZED)
-
-        subscriptions = user.subscriptions.all()
-        serializer = UserSerializer(subscriptions,
-                                    context={'request': request}, many=True)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['POST', 'DELETE'])
-    def subscribe(self, request, pk=None):
-        target_user = self.get_object()
-        current_user = request.user
-
-        if not current_user.is_authenticated:
-            return Response({'detail': 'Вы не авторизованы!'},
-                            status=status.HTTP_401_UNAUTHORIZED)
+        author_id = self.kwargs.get('id')
+        author = get_object_or_404(CustomUser, id=author_id)
 
         if request.method == 'POST':
+            serializer = SubscribeSerializer(author,
+                                             data=request.data,
+                                             context={"request": request})
+            serializer.is_valid(raise_exception=True)
+            Subscribe.objects.create(user=user, author=author)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-            if current_user == target_user:
-                return Response(
-                    {'detail': 'Вы не можете подписаться на самого себя!'},
-                    status=status.HTTP_400_BAD_REQUEST)
+        if request.method == 'DELETE':
+            subscription = get_object_or_404(Subscribe,
+                                             user=user,
+                                             author=author)
+            subscription.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
-            if current_user.subscriptions.filter(id=target_user.id).exists():
-                return Response(
-                    {'detail': 'Пользователь уже добавлен в подписки!'},
-                    status=status.HTTP_400_BAD_REQUEST)
-
-            current_user.subscriptions.add(target_user)
-
-            return Response({'detail': 'Подписка выполнена успешно!'},
-                            status=status.HTTP_201_CREATED)
-
-        if current_user.subscriptions.filter(id=target_user.id).exists():
-            current_user.subscriptions.remove(target_user)
-            return Response({'detail': 'Подписка успешно удалена!'},
-                            status=status.HTTP_200_OK)
-        return Response(
-            {'detail': 'Пользователь не найден в подписках!'},
-            status=status.HTTP_404_NOT_FOUND)
+    @action(
+        detail=False,
+        permission_classes=[IsAuthenticated]
+    )
+    def subscriptions(self, request):
+        user = request.user
+        queryset = CustomUser.objects.filter(subscribing__user=user)
+        pages = self.paginate_queryset(queryset)
+        serializer = SubscribeSerializer(pages,
+                                         many=True,
+                                         context={'request': request})
+        return self.get_paginated_response(serializer.data)

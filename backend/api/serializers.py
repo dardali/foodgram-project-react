@@ -1,18 +1,11 @@
 from django.shortcuts import get_object_or_404
-from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
+
+from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
 from users.serializers import UserSerializer
 
 from .fields import Base64ImageField
-
-
-class IngredientSerializer(serializers.ModelSerializer):
-    """Сериализатор для Ингредиентов"""
-
-    class Meta:
-        model = Ingredient
-        fields = '__all__'
 
 
 class IngredientAmountSerializer(serializers.ModelSerializer):
@@ -39,6 +32,15 @@ class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = '__all__'
+
+
+class RecipeShortSerializer(serializers.ModelSerializer):
+    """Сериализатор для сокращенного показа рецепта."""
+    image = Base64ImageField(required=False, allow_null=True)
+
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'cooking_time', 'image')
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -146,5 +148,13 @@ class RecipeSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         user = request.user
         if user.is_authenticated:
-            return obj.shopping_carts.filter(user=user).exists()
+            return obj.shopping_cart.filter(user=user).exists()
         return False
+
+
+class IngredientSerializer(serializers.ModelSerializer):
+    """Сериализатор для Ингредиентов"""
+
+    class Meta:
+        model = Ingredient
+        fields = '__all__'
