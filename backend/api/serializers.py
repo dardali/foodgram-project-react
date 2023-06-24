@@ -1,11 +1,51 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.validators import UniqueTogetherValidator
-
-from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
 from users.serializers import UserSerializer
+from rest_framework.fields import SerializerMethodField
+from rest_framework.exceptions import ValidationError
 
 from .fields import Base64ImageField
+from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
+from users.models import Subscribe
+
+
+class SubscribeSerializer(UserSerializer):
+    recipes_count = SerializerMethodField()
+    recipes = SerializerMethodField()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + (
+            'recipes_count', 'recipes'
+        )
+        read_only_fields = ('email', 'username')
+
+    def validate(self, data):
+        author = self.instance
+        user = self.context.get('request').user
+        if Subscribe.objects.filter(author=author, user=user).exists():
+            raise ValidationError(
+                detail='Вы уже подписались на этого автора!',
+                code=status.HTTP_400_BAD_REQUEST
+            )
+        if user == author:
+            raise ValidationError(
+                detail='Вы не можете подписаться на самого себя!',
+                code=status.HTTP_400_BAD_REQUEST
+            )
+        return data
+
+    def get_recipes_count(self, obj):
+        return obj.recipes.count()
+
+    def get_recipes(self, obj):
+        request = self.context.get('request')
+        limit = request.GET.get('recipes_limit')
+        recipes = obj.recipes.all()
+        if limit:
+            recipes = recipes[:int(limit)]
+        serializer = RecipeShortSerializer(recipes, many=True, read_only=True)
+        return serializer.data
 
 
 class IngredientAmountSerializer(serializers.ModelSerializer):
@@ -51,13 +91,24 @@ class RecipeSerializer(serializers.ModelSerializer):
         source='ingredient_in_recipe',
         many=True,
         read_only=True)
-    is_favorited = serializers.SerializerMethodField()
+    is_favorited = serializers.SerializerMethodField(read_only=True)
     is_in_shopping_cart = serializers.SerializerMethodField()
     image = Base64ImageField()
 
     class Meta:
         model = Recipe
-        fields = "__all__"
+        fields = (
+            'id',
+            'tags',
+            'author',
+            'ingredients',
+            'is_favorited',
+            'is_in_shopping_cart',
+            'name',
+            'image',
+            'text',
+            'cooking_time',
+        )
         read_only_fields = (
             'is_favorite',
             'is_shopping_cart',
@@ -117,24 +168,21 @@ class RecipeSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, instance, validated_data):
-        instance.name = validated_data.get('name', instance.name)
-        instance.text = validated_data.get('text', instance.text)
-        instance.cooking_time = validated_data.get('cooking_time',
-                                                   instance.cooking_time)
-        instance.image = validated_data.get('image', instance.image)
-        instance.save()
-        tags_data = self.initial_data.get('tags')
-        instance.tags.set(tags_data)
-        ingredients_data = validated_data.get('ingredients')
-        IngredientInRecipe.objects.filter(recipe=instance).delete()
-        for ingredient_data in ingredients_data:
-            ingredient = Ingredient.objects.get(id=ingredient_data['id'])
-            amount = ingredient_data.get('amount')
-            IngredientInRecipe.objects.create(
-                recipe=instance,
-                ingredients=ingredient,
-                amount=amount if amount else ""
-            )
+        tags_data = validated_data.pop('tags', None)
+        ingredients_data = validated_data.pop('ingredients', None)
+        instance = super().update(instance, validated_data)
+        if tags_data is not None:
+            instance.tags.set(tags_data)
+        if ingredients_data is not None:
+            IngredientInRecipe.objects.filter(recipe=instance).delete()
+            for ingredient_data in ingredients_data:
+                ingredient = Ingredient.objects.get(id=ingredient_data['id'])
+                amount = ingredient_data.get('amount')
+                IngredientInRecipe.objects.create(
+                    recipe=instance,
+                    ingredients=ingredient,
+                    amount=amount if amount else ""
+                )
         return instance
 
     def get_is_favorited(self, obj):

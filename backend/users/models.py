@@ -18,7 +18,7 @@ class CustomUser(AbstractUser):
     last_name = models.CharField(max_length=150, verbose_name='Фамилия')
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'username']
 
     def is_subscribed_to(self, other_user):
         return self.subscriber.filter(author=other_user).exists()

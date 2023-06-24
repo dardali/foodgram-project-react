@@ -1,37 +1,18 @@
 from django.db.models import Sum
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe, \
-    FavoriteRecipe, ShoppingCart
-from rest_framework import status, viewsets, response
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from rest_framework.validators import ValidationError
 
+from recipes.models import Ingredient, Tag, Recipe, IngredientInRecipe
 from .filters import IngredientFilter, RecipeFilterSet
 from .mixins import FavoriteAndShoppingCartMixin
 from .permissions import IsAdminAuthorOrReadOnly, IsAdminOrReadOnly
 from .serializers import (
     IngredientSerializer, TagSerializer, RecipeSerializer
 )
-
-
-def post_or_delete(request, pk, model, serializer_name):
-    user = request.user
-    data = {'user': user.id,
-            'recipe': pk}
-    serializer = serializer_name(data=data, context={'request': request})
-    if request.method == 'POST':
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return response.Response(serializer.data,
-                                 status=status.HTTP_201_CREATED)
-    get_object_or_404(
-        model, user=user, recipe=get_object_or_404(Recipe, id=pk)
-    ).delete()
-    return response.Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -64,8 +45,7 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
     @action(
         detail=True,
         methods=('POST', 'DELETE'),
-        permission_classes=(IsAdminOrReadOnly,)
-    )
+        permission_classes=[IsAdminOrReadOnly])
     def favorite(self, request, pk=None):
         recipe = self.get_object()
         if request.method == 'POST':
@@ -75,11 +55,13 @@ class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
 
     @action(detail=True, methods=['POST', 'DELETE'],
             permission_classes=[IsAdminOrReadOnly])
-    def download_shopping_cart(self, request):
-        user = request.user
-        if not user.shopping_cart.exists():
-            return Response('В корзине нет товаров',
-                            status=status.HTTP_400_BAD_REQUEST)
+    def shopping_cart(self, request, pk=None):
+        recipe = self.get_object()
+        if request.method == 'POST':
+            return self.handle_shopping_cart(request, recipe)
+        elif request.method == 'DELETE':
+            return self.handle_delete_shopping_cart(request, recipe)
+
     @action(detail=False, methods=['GET'])
     def download_shopping_cart(self, request):
         if not request.user.shopping_cart.exists():
