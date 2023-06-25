@@ -15,7 +15,7 @@ Python, Django, Django Rest Framework, Docker, Gunicorn, NGINX, PostgreSQL, Yand
 
 - Клонировать репозиторий:
 ```
-https://github.com/mikhailsoldatkin/foodgram-project-react.git
+git@github.com:dardali/foodgram-project-react.git
 ```
 
 - Установить на сервере Docker, Docker Compose:
