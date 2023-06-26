@@ -169,9 +169,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, instance, validated_data):
-        tags_data = validated_data.pop('tags', None)
+        tags_data = self.initial_data.get('tags')
         ingredients_data = validated_data.pop('ingredients', None)
-        instance = super().update(instance, validated_data)
         if tags_data is not None:
             instance.tags.set(tags_data)
         if ingredients_data is not None:
@@ -184,7 +183,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                     ingredients=ingredient,
                     amount=amount if amount else ""
                 )
-        return instance
+        return super().update(instance, validated_data)
 
     def get_is_favorited(self, obj):
         request = self.context.get('request')

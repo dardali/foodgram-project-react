@@ -13,12 +13,14 @@ from .permissions import IsAdminAuthorOrReadOnly, IsAdminOrReadOnly
 from .serializers import (
     IngredientSerializer, TagSerializer, RecipeSerializer
 )
+from .pagination import CustomPagination
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     filter_class = IngredientFilter
+    filter_backends = [DjangoFilterBackend]
     permission_classes = [IsAdminAuthorOrReadOnly]
     pagination_class = None
 
@@ -34,7 +36,7 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 class RecipeViewSet(viewsets.ModelViewSet, FavoriteAndShoppingCartMixin):
     queryset = Recipe.objects.all().order_by('-id')
     serializer_class = RecipeSerializer
-    pagination_class = PageNumberPagination
+    pagination_class = CustomPagination
     permission_classes = [IsAdminAuthorOrReadOnly]
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilterSet

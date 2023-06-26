@@ -1,4 +1,3 @@
-from api.serializers import SubscribeSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework import viewsets
@@ -11,12 +10,14 @@ from rest_framework.response import Response
 from .models import CustomUser
 from .models import Subscribe
 from .serializers import UserSerializer
+from api.serializers import SubscribeSerializer
+from api.pagination import CustomPagination
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
-    pagination_class = PageNumberPagination
+    pagination_class = CustomPagination
 
     @action(detail=False, methods=['GET'])
     def me(self, request):
